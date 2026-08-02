@@ -1,101 +1,100 @@
-# Scaffold: The Offline AI Tutor 🚀
+# Scaffold: The Offline Socratic AI Tutor 🚀
 
-**Built for the Gemma for Good Hackathon**
+[![Ollama](https://img.shields.io/badge/Local%20LLM-Ollama-orange.svg)](https://ollama.ai)
+[![Model](https://img.shields.io/badge/Model-Gemma--2--2B-blue.svg)](https://huggingface.co/google/gemma-2-2b)
+[![Voice](https://img.shields.io/badge/Speech%20to%20Text-Whisper-green.svg)](https://github.com/openai/whisper)
+[![License](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
 
-Scaffold is a privacy-first, fully local programming tutor for students. Traditional AI coding assistants and chatbots write code *for* students, robbing them of the learning process. Scaffold takes a different approach: it acts exactly like a human Teaching Assistant. It watches your code, catches errors instantly, and guides you to the right answer without ever writing the code for you.
+> **Built for the Gemma for Good Hackathon**
 
-Because Scaffold runs **100% locally**, it is perfect for college computer labs, areas with poor internet, and students who want to learn without uploading their code to the cloud.
+Scaffold is a privacy-first, fully local programming tutor for students. Traditional AI coding assistants and chatbots write code *for* students, robbing them of the learning process. Scaffold takes a different approach: it acts exactly like a human Teaching Assistant. It watches your code, catches errors instantly, and guides you to the right answer using **Socratic nudges** without ever writing the code for you.
+
+Because Scaffold runs **100% locally**, it is perfect for college computer labs, offline classrooms, and privacy-conscious students.
+
+---
+
+## 🌟 Key Features
+
+*   **⚡ Socratic Nudges (`scaffold hint`):** Instead of handing out solutions, Scaffold analyzes your code and last error to guide you step-by-step.
+*   **🔄 Real-time Error Watcher (`scaffold watch`):** A background file watcher that automatically captures compiler/runtime errors on file save.
+*   **🎯 Adaptive Practice Questions:** Automatically detects repeated mistakes (3+ times) on a specific programming concept and generates custom practice questions.
+*   **🎤 Voice Input (`scaffold ask-voice`):** Talk directly to your tutor using your microphone to explain your confusion.
+*   **👁️ Visual Debugging (`scaffold explain-image`):** Upload or capture clipboard snips of diagrams, error outputs, or IDE interfaces for visual analysis.
 
 ---
 
 ## 🛠️ The Student Workflow
 
-Scaffold integrates seamlessly into a student's natural coding environment—the terminal and the browser.
-
-### 1. Code & Save (`scaffold watch`)
-Run the background watcher in your project directory. Every time you save your `.py` or `.c` file, Scaffold runs it. If it crashes, Scaffold securely logs the error without interrupting your flow.
-
-### 2. Get Unstuck (`scaffold hint`)
-When you hit a wall, you don't need to copy-paste your code into a browser. Just type `scaffold hint`. Scaffold analyzes your last error and your code context, and provides a **Socratic nudge** to help you figure it out yourself.
-
-### 3. Adaptive Practice
-If Scaffold notices you making the same type of mistake 3 times in a row (e.g., forgetting to indent), it intervenes! It automatically generates a custom, tailored practice question to test your fundamental understanding of the concept before letting you move on. Run `scaffold hint` again to answer the question and get feedback.
-
-### 4. Interactive Learning
-- **Chat (`scaffold answer`)**: Drop into a zero-latency interactive chat loop to ask questions about programming concepts.
-- **Voice (`scaffold ask-voice`)**: Explain your confusion out loud to the tutor using your microphone.
-- **Vision (`scaffold explain-image`)**: Take a screenshot of a confusing diagram or weird IDE behavior, and Scaffold will analyze it visually.
-
-### 5. Web Dashboard (`python -m scaffold.app`)
-Open **http://localhost:5000** for a browser-based dashboard with:
-- Real-time mistake feed via SSE (auto-refreshes as errors are detected)
-- File picker for your workspace
-- All commands accessible via buttons and a text input bar
-- Dark theme with JetBrains Mono typography
-
----
-
-## 🏗️ Stack Architecture
-
-Scaffold is designed to run efficiently on standard college hardware (e.g., 8GB RAM, i5 CPUs) without requiring dedicated GPUs.
-
-- **Language & Reasoning Engine**: `gemma4:e2b` for rapid text generation and problem solving on low-end hardware.
-- **Vision Engine**: `llava` for fast image analysis and visual debugging.
-- **Speech-to-Text**: Local OpenAI Whisper (`base` model).
-- **Backend**: Ollama (Localhost 11434).
-- **CLI & UI**: Built with Python using **`click`** for command routing and **`rich`** for beautiful, syntax-highlighted, markdown-rendered terminal interfaces.
-- **Web Dashboard**: Flask-based localhost server with Server-Sent Events for real-time updates.
-- **State Management**: A lightweight, file-based locking system (`mistake_log.py`) safely tracks student errors in the background without needing a database.
-
----
-
-## 🚀 Installation
-
-### Windows Setup (Primary)
-1. Clone this repository:
-   ```cmd
-   git clone https://github.com/geekyfromgreek/Scaffold.git
-   cd Scaffold
-   ```
-2. Install the CLI:
-   ```cmd
-   pip install -e .
-   ```
-3. Run the automated setup (installs Ollama, downloads models, checks voice dependencies):
-   ```cmd
-   scaffold setup
-   ```
-
-### Ubuntu Setup
-If you are running on an Ubuntu PC, you must first install the voice dependency before running the steps above:
-```bash
-sudo apt update
-sudo apt install ffmpeg
+```mermaid
+graph TD
+    A[Student Writes Code] -->|Save File| B[scaffold watch captures error]
+    B --> C{Error Logged?}
+    C -->|Yes| D[Run scaffold hint]
+    D --> E{Repeated Mistake?}
+    E -->|Yes: 3+ times| F[Tutor generates Practice Question]
+    E -->|No| G[Tutor provides Socratic Nudge]
+    F --> H[Student answers question via hint]
+    H --> I[Tutor evaluates and unlocks normal workflow]
 ```
+
+---
+
+## 🏗️ Technical Architecture
+
+Scaffold is optimized to run efficiently on standard consumer hardware (e.g., 8GB RAM, modern multi-core CPU) without requiring dedicated GPUs:
+
+*   **Language & Reasoning:** Local `gemma2:2b` via Ollama for ultra-fast, offline inference.
+*   **Vision Engine:** Local `llava:latest` via Ollama for image/clipboard processing.
+*   **Speech-to-Text:** Local OpenAI Whisper (`base` model running locally on CPU).
+*   **CLI UX:** Structured via **`click`** with rich formatting, syntax highlighting, and panel displays managed by **`rich`**.
+
+---
+
+## 🚀 Installation & Setup
+
+### Prerequisites
+- Python 3.10 or higher
+- [Git](https://git-scm.com/)
+
+### Quick Start (Windows & macOS/Linux)
+
+1.  **Clone the Repository:**
+    ```bash
+    git clone https://github.com/geekyfromgreek/Scaffold.git
+    cd Scaffold
+    ```
+
+2.  **Install the Package:**
+    ```bash
+    pip install -e .
+    ```
+
+3.  **Run Automated Setup:**
+    This command automatically installs Ollama, pulls the necessary local models (`gemma2:2b` & `llava`), and checks your audio dependencies:
+    ```bash
+    scaffold setup
+    ```
+
+> [!NOTE]
+> **Linux/Ubuntu Users:** You must install system-level audio dependencies before running the setup:
+> ```bash
+> sudo apt update && sudo apt install ffmpeg
+> ```
 
 ---
 
 ## 📖 Command Reference
 
-| Command | Description |
-|---|---|
-| `scaffold setup` | Install Ollama, pull AI models, and configure auto-start. |
-| `scaffold watch` | Start the background watcher to catch errors automatically. |
-| `scaffold hint` | Get a Socratic nudge for your most recent error. Triggers practice questions on repeated mistakes. |
-| `scaffold answer` | Start an interactive Q&A loop with the tutor. |
-| `scaffold ask-voice` | Ask a question using your microphone (10s recording). |
-| `scaffold ask-voice <file>` | Transcribe and answer a question from an audio file. |
-| `scaffold check <file> --expected "<output>"` | Automatically test your logic against expected output. |
-| `scaffold run <file>` | Run your code and capture output. |
-| `scaffold explain <file>` | Get a concise explanation of what a file does. |
-| `scaffold explain <file> --input "<value>"` | Trace execution step-by-step with a given input. |
-| `scaffold explain-image <path>` | Ask the tutor to explain an image file. |
-| `scaffold explain-image --snip` | Explain the image currently in your clipboard. |
-| `scaffold review <file>` | Get a quick code-quality review with hints. |
-| `scaffold review <file> --efficiency` | Get a Big-O complexity analysis. |
-
-### Web Dashboard
-```cmd
-python -m scaffold.app
-```
-Open **http://localhost:5000** in your browser. All commands are available via the UI.
+| Command | Usage Example | Description |
+| :--- | :--- | :--- |
+| **`scaffold setup`** | `scaffold setup` | Downloads Ollama, pulls models, and runs hardware diagnostic tests. |
+| **`scaffold watch`** | `scaffold watch` | Starts the background compiler/execution watcher in the current directory. |
+| **`scaffold hint`** | `scaffold hint` | Shows a Socratic hint for the last error. Evaluates active practice question if one is pending. |
+| **`scaffold answer`** | `scaffold answer "What is a pointer?"` | Launches a general Q&A prompt to ask conceptual programming questions. |
+| **`scaffold ask-voice`** | `scaffold ask-voice` | Records your mic for 10 seconds and explains your question. |
+| **`scaffold check`** | `scaffold check main.py --expected "Hello World"` | Compares program output with expected output, explaining logic bugs. |
+| **`scaffold run`** | `scaffold run main.py` | Runs the target script, capturing outputs or compilation failures. |
+| **`scaffold explain`** | `scaffold explain main.py` | Explains the target file line-by-line using high-level concepts. |
+| **`scaffold explain-image`** | `scaffold explain-image --snip` | Captures your clipboard image snip and explains the visual issue. |
+| **`scaffold review`** | `scaffold review main.py` | Performs a code quality review, outputting issues and Socratic hints. |
+| **`scaffold review`** | `scaffold review main.py --efficiency` | Analyzes code complexity and provides Big-O optimization feedback. |
