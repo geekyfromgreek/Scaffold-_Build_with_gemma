@@ -27,14 +27,32 @@ Because Scaffold runs **100% locally**, it is perfect for college computer labs,
 
 ```mermaid
 graph TD
-    A[Student Writes Code] -->|Save File| B[scaffold watch captures error]
-    B --> C{Error Logged?}
-    C -->|Yes| D[Run scaffold hint]
-    D --> E{Repeated Mistake?}
-    E -->|Yes: 3+ times| F[Tutor generates Practice Question]
-    E -->|No| G[Tutor provides Socratic Nudge]
-    F --> H[Student answers question via hint]
-    H --> I[Tutor evaluates and unlocks normal workflow]
+    %% Main Entry Points
+    Student([Student Coder]) -->|Saves python/C file| Watcher[scaffold watch]
+    Student -->|Wants quality/Big-O analysis| Review[scaffold review / --efficiency]
+    Student -->|General Q&A| Answer[scaffold answer]
+    Student -->|Voice query| Voice[scaffold ask-voice]
+    Student -->|Visual/IDE debug| Vision[scaffold explain-image]
+    Student -->|Step-by-step simulation| Explain[scaffold explain / --input]
+    Student -->|Validate output| Check[scaffold check / --expected]
+
+    %% Code Execution Flow
+    Watcher -->|Runs code| RunResult{Code Crashed?}
+    RunResult -->|No| Success[Clean Run logged]
+    RunResult -->|Yes| ErrorLogged[Error logged in mistakes.json]
+
+    %% Hint & Practice Interventions
+    ErrorLogged -->|Student runs| Hint[scaffold hint]
+    Hint --> RepeatedCheck{Repeated Mistake? 3+ times}
+    
+    RepeatedCheck -->|No| Socratic[Tutor provides Socratic Nudge]
+    RepeatedCheck -->|Yes| GeneratePractice[Tutor generates Practice Question]
+    
+    GeneratePractice --> SavePractice[Saved in state.json]
+    SavePractice --> StudentPractice[Student answers question via hint]
+    StudentPractice --> Evaluate[Tutor evaluates answer]
+    Evaluate -->|Incorrect| GeneratePractice
+    Evaluate -->|Correct| Unlock[Tutor clears state & unlocks coding]
 ```
 
 ---
