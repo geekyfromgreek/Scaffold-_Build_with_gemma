@@ -10,21 +10,28 @@ Because Scaffold runs **100% locally**, it is perfect for college computer labs,
 
 ## 🛠️ The Student Workflow
 
-Scaffold integrates seamlessly into a student's natural coding environment—the terminal. 
+Scaffold integrates seamlessly into a student's natural coding environment—the terminal and the browser.
 
 ### 1. Code & Save (`scaffold watch`)
 Run the background watcher in your project directory. Every time you save your `.py` or `.c` file, Scaffold runs it. If it crashes, Scaffold securely logs the error without interrupting your flow.
 
 ### 2. Get Unstuck (`scaffold hint`)
-When you hit a wall, you don't need to copy-paste your code into a browser. Just type `scaffold hint`. Scaffold analyzes your last error and your code context, and provides a **Socratic nudge** to help you figure it out yourself. 
+When you hit a wall, you don't need to copy-paste your code into a browser. Just type `scaffold hint`. Scaffold analyzes your last error and your code context, and provides a **Socratic nudge** to help you figure it out yourself.
 
 ### 3. Adaptive Practice
-If Scaffold notices you making the same type of mistake 3 times in a row (e.g., forgetting to indent), it intervenes! It automatically generates a custom, tailored practice question to test your fundamental understanding of the concept before letting you move on.
+If Scaffold notices you making the same type of mistake 3 times in a row (e.g., forgetting to indent), it intervenes! It automatically generates a custom, tailored practice question to test your fundamental understanding of the concept before letting you move on. Run `scaffold hint` again to answer the question and get feedback.
 
 ### 4. Interactive Learning
 - **Chat (`scaffold answer`)**: Drop into a zero-latency interactive chat loop to ask questions about programming concepts.
-- **Voice (`scaffold ask-voice --mic`)**: Explain your confusion out loud to the tutor using your microphone.
+- **Voice (`scaffold ask-voice`)**: Explain your confusion out loud to the tutor using your microphone.
 - **Vision (`scaffold explain-image`)**: Take a screenshot of a confusing diagram or weird IDE behavior, and Scaffold will analyze it visually.
+
+### 5. Web Dashboard (`python -m scaffold.app`)
+Open **http://localhost:5000** for a browser-based dashboard with:
+- Real-time mistake feed via SSE (auto-refreshes as errors are detected)
+- File picker for your workspace
+- All commands accessible via buttons and a text input bar
+- Dark theme with JetBrains Mono typography
 
 ---
 
@@ -37,6 +44,7 @@ Scaffold is designed to run efficiently on standard college hardware (e.g., 8GB 
 - **Speech-to-Text**: Local OpenAI Whisper (`base` model).
 - **Backend**: Ollama (Localhost 11434).
 - **CLI & UI**: Built with Python using **`click`** for command routing and **`rich`** for beautiful, syntax-highlighted, markdown-rendered terminal interfaces.
+- **Web Dashboard**: Flask-based localhost server with Server-Sent Events for real-time updates.
 - **State Management**: A lightweight, file-based locking system (`mistake_log.py`) safely tracks student errors in the background without needing a database.
 
 ---
@@ -53,7 +61,7 @@ Scaffold is designed to run efficiently on standard college hardware (e.g., 8GB 
    ```cmd
    pip install -e .
    ```
-3. Run the automated setup (installs Ollama & downloads the Gemma model):
+3. Run the automated setup (installs Ollama, downloads models, checks voice dependencies):
    ```cmd
    scaffold setup
    ```
@@ -71,11 +79,23 @@ sudo apt install ffmpeg
 
 | Command | Description |
 |---|---|
-| `scaffold watch` | Starts the background watcher to catch errors automatically. |
-| `scaffold hint` | Get a Socratic nudge for your most recent error. |
+| `scaffold setup` | Install Ollama, pull AI models, and configure auto-start. |
+| `scaffold watch` | Start the background watcher to catch errors automatically. |
+| `scaffold hint` | Get a Socratic nudge for your most recent error. Triggers practice questions on repeated mistakes. |
 | `scaffold answer` | Start an interactive Q&A loop with the tutor. |
-| `scaffold ask-voice --mic` | Ask a question using your microphone. |
-| `scaffold check <file>` | Automatically test your logic against expected output. |
-| `scaffold explain <file>` | Get a line-by-line explanation of a confusing file. |
-| `scaffold explain-image` | Ask the tutor to explain the image currently in your clipboard. |
-| `scaffold review <file>` | Get a quick code-quality or efficiency review. |
+| `scaffold ask-voice` | Ask a question using your microphone (10s recording). |
+| `scaffold ask-voice <file>` | Transcribe and answer a question from an audio file. |
+| `scaffold check <file> --expected "<output>"` | Automatically test your logic against expected output. |
+| `scaffold run <file>` | Run your code and capture output. |
+| `scaffold explain <file>` | Get a concise explanation of what a file does. |
+| `scaffold explain <file> --input "<value>"` | Trace execution step-by-step with a given input. |
+| `scaffold explain-image <path>` | Ask the tutor to explain an image file. |
+| `scaffold explain-image --snip` | Explain the image currently in your clipboard. |
+| `scaffold review <file>` | Get a quick code-quality review with hints. |
+| `scaffold review <file> --efficiency` | Get a Big-O complexity analysis. |
+
+### Web Dashboard
+```cmd
+python -m scaffold.app
+```
+Open **http://localhost:5000** in your browser. All commands are available via the UI.
