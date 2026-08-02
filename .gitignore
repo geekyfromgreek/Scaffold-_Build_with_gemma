@@ -53,3 +53,8 @@ mistakes.json
 # IDEs
 .vscode/
 .idea/
+
+# Workspace documents and configs
+activeContext.md
+progress.md
+serve.toml
