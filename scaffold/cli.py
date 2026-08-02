@@ -62,7 +62,7 @@ def main(ctx):
     It provides hints, explanations, and practice using a local Gemma model.
     """
     if ctx.invoked_subcommand is None:
-        click.echo(ctx.get_help())
+        ctx.invoke(watch)
 
 
 # scaffold setup
@@ -71,6 +71,18 @@ def setup():
     """Install Ollama, pull the Gemma model, and setup the offline tutor."""
     from scaffold.setup import run_setup
     run_setup()
+
+
+# scaffold watch
+@main.command()
+@click.option("--daemon", is_flag=True, hidden=True, help="Run in background mode (used by auto-start hook).")
+@click.option("--dir", "watch_dir", type=click.Path(exists=True, file_okay=False), default=".",
+              help="Directory to watch (default: current directory).")
+def watch(daemon, watch_dir):
+    """Start the background file watcher to detect coding errors."""
+    from scaffold.watcher import start_watcher
+
+    start_watcher(watch_dir, daemon=daemon)
 
 
 # scaffold hint
@@ -83,29 +95,79 @@ def hint():
     """
     from scaffold.mistake_log import get_recent_error, should_generate_practice, get_concept_errors
     from scaffold.ollama_client import query_gemma, is_ollama_running
-    from scaffold.prompts import build_hint_prompt
-    from scaffold.display import display_hint_response, display_practice, display_error
-    from scaffold.state import save_last_practice
+    from scaffold.prompts import build_hint_prompt, build_practice_prompt
+    from scaffold.display import display_hint_response, display_practice, display_error, console
+    from scaffold.state import save_last_practice, load_last_practice, clear_last_practice
 
     if not is_ollama_running():
         display_error("Ollama is not running. Start it with 'ollama serve' or run 'scaffold setup'.")
         return
 
+    # 1. Check if there is already an active practice question in the state
+    practice = load_last_practice()
+    if practice is not None:
+        display_practice(practice["question"])
+        try:
+            user_answer = console.input("\n[bold cyan]Your answer (or press Ctrl+C to exit):[/] ").strip()
+        except (KeyboardInterrupt, EOFError):
+            console.print()
+            return
+            
+        if user_answer:
+            from scaffold.prompts import build_eval_prompt
+            from scaffold.display import display_streamed_explanation
+            eval_prompt = build_eval_prompt(practice["question"], user_answer)
+            result = query_gemma(eval_prompt, stream=True)
+            if result:
+                display_streamed_explanation("answer evaluation", result)
+                clear_last_practice()
+        return
+
+    # 2. Otherwise, check recent errors to see if we should generate a new practice question or standard hint
     error = get_recent_error()
     if error is None:
         display_error("No recent errors found. Write some code and I'll watch for mistakes!")
         return
 
-    # Check if we should generate a practice question instead
     concept = error.get("concept", "")
     if concept and should_generate_practice(concept):
-        from scaffold.prompts import build_practice_prompt
         past_errors = get_concept_errors(concept)
         prompt = build_practice_prompt(concept, past_errors)
         response = query_gemma(prompt, stream=True)
         if response:
-            save_last_practice(concept, response)
-            display_practice(response)
+            full_text = ""
+            from rich.live import Live
+            from rich.panel import Panel
+            from rich.markdown import Markdown
+            
+            with Live(Panel("", title="[bold]🎯 Practice Question[/]", border_style="yellow", padding=(1, 2)), console=console, refresh_per_second=50) as live:
+                for chunk in response:
+                    full_text += chunk
+                    live.update(Panel(
+                        Markdown(full_text.strip()),
+                        title="[bold]🎯 Practice Question[/]",
+                        subtitle="[dim]Type your answer below or press Ctrl+C to exit[/]",
+                        border_style="yellow",
+                        padding=(1, 2),
+                    ))
+            
+            save_last_practice(concept, full_text.strip())
+
+            # Prompt the user directly in the terminal to answer it immediately
+            try:
+                user_answer = console.input("\n[bold cyan]Your answer (or press Ctrl+C to exit):[/] ").strip()
+            except (KeyboardInterrupt, EOFError):
+                console.print()
+                return
+
+            if user_answer:
+                from scaffold.prompts import build_eval_prompt
+                from scaffold.display import display_streamed_explanation
+                eval_prompt = build_eval_prompt(full_text.strip(), user_answer)
+                result = query_gemma(eval_prompt, stream=True)
+                if result:
+                    display_streamed_explanation("answer evaluation", result)
+                    clear_last_practice()
         return
 
     # Normal hint flow
@@ -220,6 +282,57 @@ def explain(file_parts, input_val):
     response = query_gemma(prompt, stream=True)
     if response:
         display_streamed_explanation(file, response)
+
+
+# scaffold answer "<response>"
+@main.command()
+@click.argument("response_parts", nargs=-1, required=False, metavar="[RESPONSE]")
+def answer(response_parts):
+    """Answer a practice question, or ask any programming question."""
+    from scaffold.ollama_client import query_gemma, is_ollama_running
+    from scaffold.display import display_streamed_explanation, display_error
+    from scaffold.state import load_last_practice
+    from scaffold.display import console
+
+    if not is_ollama_running():
+        display_error("Ollama is not running. Start it with 'ollama serve' or run 'scaffold setup'.")
+        return
+
+    response = " ".join(response_parts).strip()
+
+    while True:
+        if not response:
+            try:
+                response = console.input("\n[bold cyan]Ask a question (or press Ctrl+C to exit):[/] ").strip()
+            except (KeyboardInterrupt, EOFError):
+                console.print()
+                break
+            
+            if not response:
+                continue
+
+        # If there's an active practice question, evaluate the answer against it
+        practice = load_last_practice()
+        if practice is not None:
+            from scaffold.prompts import build_eval_prompt
+            from scaffold.state import clear_last_practice
+            
+            prompt = build_eval_prompt(practice["question"], response)
+            result = query_gemma(prompt, stream=True)
+            if result:
+                display_streamed_explanation("answer evaluation", result)
+                # Clear the practice question so the user isn't stuck answering it forever
+                clear_last_practice()
+        else:
+            # No active practice question — treat as a general Q&A
+            from scaffold.prompts import build_answer_prompt
+            prompt = build_answer_prompt(response)
+            result = query_gemma(prompt, stream=True)
+            if result:
+                display_streamed_explanation("answer", result)
+        
+        # Clear response to prompt the user again in the next loop
+        response = ""
 
 
 if __name__ == "__main__":

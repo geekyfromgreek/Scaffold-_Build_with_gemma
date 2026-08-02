@@ -70,6 +70,12 @@ Explains how the specified code works conceptually.
   ```bash
   scaffold explain calculator.py --input "5"
   ```
+### 6. `scaffold watch`
+Starts the real-time code watcher in the current directory.
+- Monitors `.py` and `.c` files for modifications.
+- Runs instant compiler syntax checks locally (2s debounce).
+- Delivers a Socratic AI nudge (9s debounce) if a mistake persists.
+- Auto-suggests calling `scaffold hint` if the same mistake concept is repeated 3+ times.
 
 ---
 

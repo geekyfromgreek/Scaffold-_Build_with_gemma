@@ -163,10 +163,10 @@ def display_hint_response(filepath: str, raw_response: str):
     if not blocks:
         # Model didn't follow the format — display as plain text
         console.print(Panel(
-            raw_response.strip(),
+            Markdown(raw_response.strip()),
             title="[bold]💡 Hint[/]",
             border_style="cyan",
-            padding=(0, 1),
+            padding=(1, 2),
         ))
         return
 
@@ -198,15 +198,15 @@ def display_hint_response(filepath: str, raw_response: str):
         # Explanation panel
         explanation_parts = []
         if issue:
-            explanation_parts.append(f"[bold]ISSUE:[/] {issue}")
+            explanation_parts.append(f"**ISSUE:** {issue}")
         if why:
-            explanation_parts.append(f"[bold]WHY:[/]   {why}")
+            explanation_parts.append(f"**WHY:** {why}")
 
         if explanation_parts:
             console.print(Panel(
-                "\n".join(explanation_parts),
+                Markdown("\n\n".join(explanation_parts)),
                 border_style="blue",
-                padding=(0, 1),
+                padding=(1, 2),
             ))
 
 
@@ -224,9 +224,9 @@ def display_streamed_explanation(source: str, stream: Generator[str, None, None]
 def display_practice(question: str):
     """Display a practice question in a distinct panel."""
     console.print(Panel(
-        question.strip(),
+        Markdown(question.strip()),
         title="[bold]🎯 Practice Question[/]",
-        subtitle="[dim]Answer with: scaffold answer \"your answer here\"[/]",
+        subtitle="[dim]Type your answer below or press Ctrl+C to exit[/]",
         border_style="yellow",
         padding=(1, 2),
     ))
