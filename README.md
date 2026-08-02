@@ -1,96 +1,81 @@
-# Scaffold 🚀
+# Scaffold: The Offline AI Tutor 🚀
 
-An offline, privacy-first AI programming companion and tutor powered by Google's **Gemma 4** model via Ollama. Scaffold acts as a Socratic coding assistant for beginner engineers, guiding them through errors and programming concepts rather than just writing the code for them.
+**Built for the Gemma for Good Hackathon**
 
----
+Scaffold is a privacy-first, fully local programming tutor for students. Traditional AI coding assistants and chatbots write code *for* students, robbing them of the learning process. Scaffold takes a different approach: it acts exactly like a human Teaching Assistant. It watches your code, catches errors instantly, and guides you to the right answer without ever writing the code for you.
 
-## 💡 Core Philosophy
-- **Privacy & Offline First**: Everything runs entirely on your local machine using Ollama. No source code or learning history ever leaves your device.
-- **Socratic Guidance**: Scaffold **never** writes or corrects code for you. Instead, it provides structured breakdowns, hints, and concept-reinforcing practice questions to help you learn and fix the bugs yourself.
+Because Scaffold runs **100% locally**, it is perfect for college computer labs, areas with poor internet, and students who want to learn without uploading their code to the cloud.
 
 ---
 
-## 🛠️ Installation & Setup
+## 🛠️ The Student Workflow
 
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/geekyfromgreek/Scaffold-_Build_with_gemma.git
-   cd Scaffold-_Build_with_gemma
+Scaffold integrates seamlessly into a student's natural coding environment—the terminal. 
+
+### 1. Code & Save (`scaffold watch`)
+Run the background watcher in your project directory. Every time you save your `.py` or `.c` file, Scaffold runs it. If it crashes, Scaffold securely logs the error without interrupting your flow.
+
+### 2. Get Unstuck (`scaffold hint`)
+When you hit a wall, you don't need to copy-paste your code into a browser. Just type `scaffold hint`. Scaffold analyzes your last error and your code context, and provides a **Socratic nudge** to help you figure it out yourself. 
+
+### 3. Adaptive Practice
+If Scaffold notices you making the same type of mistake 3 times in a row (e.g., forgetting to indent), it intervenes! It automatically generates a custom, tailored practice question to test your fundamental understanding of the concept before letting you move on.
+
+### 4. Interactive Learning
+- **Chat (`scaffold answer`)**: Drop into a zero-latency interactive chat loop to ask questions about programming concepts.
+- **Voice (`scaffold ask-voice --mic`)**: Explain your confusion out loud to the tutor using your microphone.
+- **Vision (`scaffold explain-image`)**: Take a screenshot of a confusing diagram or weird IDE behavior, and Scaffold will analyze it visually.
+
+---
+
+## 🏗️ Stack Architecture
+
+Scaffold is designed to run efficiently on standard college hardware (e.g., 8GB RAM, i5 CPUs) without requiring dedicated GPUs.
+
+- **Language & Reasoning Engine**: `gemma4:e2b` for rapid text generation and problem solving on low-end hardware.
+- **Vision Engine**: `llava` for fast image analysis and visual debugging.
+- **Speech-to-Text**: Local OpenAI Whisper (`base` model).
+- **Backend**: Ollama (Localhost 11434).
+- **CLI & UI**: Built with Python using **`click`** for command routing and **`rich`** for beautiful, syntax-highlighted, markdown-rendered terminal interfaces.
+- **State Management**: A lightweight, file-based locking system (`mistake_log.py`) safely tracks student errors in the background without needing a database.
+
+---
+
+## 🚀 Installation
+
+### Windows Setup (Primary)
+1. Clone this repository:
+   ```cmd
+   git clone https://github.com/geekyfromgreek/Scaffold.git
+   cd Scaffold
    ```
-
-2. **Install Scaffold in Editable/Development Mode**:
-   ```bash
+2. Install the CLI:
+   ```cmd
    pip install -e .
    ```
-
-3. **Run the Setup Wizard**:
-   The installer automatically checks your local environment and configures the Gemma model:
-   ```bash
+3. Run the automated setup (installs Ollama & downloads the Gemma model):
+   ```cmd
    scaffold setup
    ```
-   *What this does:*
-   - Checks if **Ollama** is installed and running (guides you through installation if missing).
-   - Pulls the local Gemma 4 model (`gemma4:e2b`, ~7.2 GB).
 
----
-
-## 💻 Commands
-
-### 1. `scaffold setup`
-Runs the wizard to verify your local Ollama environment and pull the required Gemma 4 model.
-
-### 2. `scaffold answer "[query]"`
-Ask any general programming or conceptual question. Gemma 4 will stream the explanation in real-time inside a formatted panel.
-
-- **Ask directly**:
-  ```bash
-  scaffold answer "What is the difference between a list and a tuple in Python?"
-  ```
-- **Interactive Mode**: Run without any arguments to open an interactive tutor shell loop:
-  ```bash
-  scaffold answer
-  ```
-
-### 3. `scaffold hint`
-Queries the AI tutor for a Socratic hint regarding your most recent error.
-
-- Explains the issue using a structured **LINE / ISSUE / WHY** format with code syntax-highlighting.
-- **Adaptive Practice**: If you make the same category of mistake **3 or more times**, Scaffold will automatically shift from giving hints to generating a conceptual **practice question** to reinforce your understanding. You can submit your answer using `scaffold answer "<your explanation>"`.
-
-### 4. `scaffold review <file>`
-Performs an on-demand code quality review of the specified file, identifying 1 to 3 suggestions for improving code quality, formatted in the Socratic **LINE / ISSUE / WHY** breakdown.
-
-### 5. `scaffold explain <file> [--input "<value>"]`
-Explains how the specified code works conceptually.
-- **Prose explanation**: Run without options to get a high-level summary of the code flow and variables:
-  ```bash
-  scaffold explain hello.py
-  ```
-- **Step-by-step trace**: Provide the `--input` flag to trace execution step-by-step for a specific input value:
-  ```bash
-  scaffold explain calculator.py --input "5"
-  ```
-### 6. `scaffold watch`
-Starts the real-time code watcher in the current directory.
-- Monitors `.py` and `.c` files for modifications.
-- Runs instant compiler syntax checks locally (2s debounce).
-- Delivers a Socratic AI nudge (9s debounce) if a mistake persists.
-- Auto-suggests calling `scaffold hint` if the same mistake concept is repeated 3+ times.
-
----
-
-## 📂 Project Structure
-```text
-Scaffold/
-├── pyproject.toml      # Package dependencies and CLI entry point
-├── README.md           # Documentation
-├── .gitignore          # Git exclusion rules
-└── scaffold/
-    ├── __init__.py     # Package version metadata
-    ├── cli.py          # Click CLI router and command definitions
-    ├── ollama_client.py# Local Ollama library connector
-    ├── prompts.py      # Socratic prompts enforcing the NO_CODE rule
-    ├── display.py      # Terminal UI rendering using Rich
-    ├── mistake_log.py  # Local JSON mistake log database (~/.scaffold/mistakes.json)
-    └── state.py        # Lightweight JSON state persistence (~/.scaffold/state.json)
+### Ubuntu Setup
+If you are running on an Ubuntu PC, you must first install the voice dependency before running the steps above:
+```bash
+sudo apt update
+sudo apt install ffmpeg
 ```
+
+---
+
+## 📖 Command Reference
+
+| Command | Description |
+|---|---|
+| `scaffold watch` | Starts the background watcher to catch errors automatically. |
+| `scaffold hint` | Get a Socratic nudge for your most recent error. |
+| `scaffold answer` | Start an interactive Q&A loop with the tutor. |
+| `scaffold ask-voice --mic` | Ask a question using your microphone. |
+| `scaffold check <file>` | Automatically test your logic against expected output. |
+| `scaffold explain <file>` | Get a line-by-line explanation of a confusing file. |
+| `scaffold explain-image` | Ask the tutor to explain the image currently in your clipboard. |
+| `scaffold review <file>` | Get a quick code-quality or efficiency review. |

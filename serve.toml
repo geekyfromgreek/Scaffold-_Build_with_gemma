@@ -1,0 +1,3 @@
+[app.scaffold]
+command = "python -m scaffold.app"
+title = "Scaffold AI Tutor"

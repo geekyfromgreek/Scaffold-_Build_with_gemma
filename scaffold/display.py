@@ -5,11 +5,14 @@ It reads student files for context display but NEVER writes to them.
 
 Provides:
   • parse_model_response() — regex extraction of LINE/ISSUE/WHY format
-  • display_syntax_error() — compact syntax error print with code segment
-  • display_nudge() — simple dim nudge text print
   • display_hint_response() — code context panel + explanation panel
-  • display_streamed_explanation() — live-streamed prose explanation
+  • display_syntax_error() — compact error line for the watcher
+  • display_nudge() — single-line automatic nudge (no panel)
+  • display_run_result() — stdout/stderr from `scaffold run`
+  • display_explanation() — prose explanation panel
   • display_practice() — practice question panel
+  • display_efficiency_response() — Big-O analysis panel
+  • display_check_pass() — success message for `scaffold check`
   • display_error() — generic error message
 """
 
@@ -91,6 +94,47 @@ def parse_model_response(raw: str) -> list[dict]:
     return blocks
 
 
+def parse_efficiency_response(raw: str) -> list[dict]:
+    """Parse LINE/CURRENT/BETTER blocks from model output.
+
+    Returns list of dicts with keys: line, current, better.
+    If the response says 'reasonable', returns a single block indicating that.
+    """
+    # Check for "reasonable" / "already efficient" patterns
+    lower = raw.lower()
+    if any(phrase in lower for phrase in [
+        "current approach is reasonable",
+        "already efficient",
+        "already reasonable",
+        "no significant improvement",
+    ]):
+        return [{"line": 0, "current": "", "better": "", "reasonable": True}]
+
+    blocks = []
+    current: dict = {}
+
+    for text_line in raw.strip().splitlines():
+        text_line = text_line.strip()
+
+        m_line = re.match(r"^LINE:\s*(\d+)", text_line, re.IGNORECASE)
+        m_current = re.match(r"^CURRENT:\s*(.*)", text_line, re.IGNORECASE)
+        m_better = re.match(r"^BETTER:\s*(.*)", text_line, re.IGNORECASE)
+
+        if m_line:
+            if current:
+                blocks.append(current)
+            current = {"line": int(m_line.group(1)), "current": "", "better": "", "reasonable": False}
+        elif m_current and current:
+            current["current"] = m_current.group(1).strip()
+        elif m_better and current:
+            current["better"] = m_better.group(1).strip()
+
+    if current:
+        blocks.append(current)
+
+    return blocks
+
+
 # Code context extraction
 
 def _extract_code_context(filepath: str, target_line: int, context: int = 3) -> tuple[str, int, int]:
@@ -125,6 +169,7 @@ def display_syntax_error(error: dict):
     filename = Path(filepath).name
     line_num = error.get("line", 0)
     msg = error.get("message", "Syntax error")
+    # Truncate very long messages
     if len(msg) > 120:
         msg = msg[:117] + "..."
 
@@ -160,6 +205,38 @@ def display_error(message: str):
     console.print(f"[scaffold.error]✗ {message}[/]")
 
 
+def display_check_pass(filepath: str):
+    """Show a success message when scaffold check matches expected output."""
+    filename = Path(filepath).name
+    console.print(
+        f"[scaffold.success]✓ {filename} produces the expected output![/]"
+    )
+
+
+def display_run_result(result: dict):
+    """Show the output of `scaffold run`."""
+    filename = Path(result["file"]).name
+
+    if result["stdout"]:
+        console.print(Panel(
+            result["stdout"].rstrip(),
+            title=f"[bold]📤 Output — {filename}[/]",
+            border_style="green" if not result["runtime_error"] else "yellow",
+            padding=(0, 1),
+        ))
+
+    if result["stderr"]:
+        console.print(Panel(
+            result["stderr"].rstrip(),
+            title=f"[bold]⚠ Errors — {filename}[/]",
+            border_style="red",
+            padding=(0, 1),
+        ))
+
+    if not result["runtime_error"] and not result["stdout"] and not result["stderr"]:
+        console.print(f"[scaffold.success]✓ {filename} ran successfully (no output).[/]")
+
+
 def display_hint_response(filepath: str, raw_response: str):
     """Parse and display a LINE/ISSUE/WHY hint response with code context."""
     blocks = parse_model_response(raw_response)
@@ -167,10 +244,10 @@ def display_hint_response(filepath: str, raw_response: str):
     if not blocks:
         # Model didn't follow the format — display as plain text
         console.print(Panel(
-            Markdown(raw_response.strip()),
+            raw_response.strip(),
             title="[bold]💡 Hint[/]",
             border_style="cyan",
-            padding=(1, 2),
+            padding=(0, 1),
         ))
         return
 
@@ -203,18 +280,93 @@ def display_hint_response(filepath: str, raw_response: str):
         # Explanation panel
         explanation_parts = []
         if issue:
-            explanation_parts.append(f"**ISSUE:** {issue}")
+            explanation_parts.append(f"[bold]ISSUE:[/] {issue}")
         if why:
-            explanation_parts.append(f"**WHY:** {why}")
+            explanation_parts.append(f"[bold]WHY:[/]   {why}")
         if hint:
-            explanation_parts.append(f"**HINT:** {hint}")
+            explanation_parts.append(f"[bold]HINT:[/]  {hint}")
 
         if explanation_parts:
             console.print(Panel(
-                Markdown("\n\n".join(explanation_parts)),
+                "\n".join(explanation_parts),
                 border_style="blue",
-                padding=(1, 2),
+                padding=(0, 1),
             ))
+
+
+def display_efficiency_response(filepath: str, raw_response: str):
+    """Parse and display a LINE/CURRENT/BETTER efficiency response."""
+    blocks = parse_efficiency_response(raw_response)
+
+    if not blocks:
+        console.print(Panel(
+            raw_response.strip(),
+            title="[bold]⚡ Efficiency Analysis[/]",
+            border_style="yellow",
+            padding=(0, 1),
+        ))
+        return
+
+    for block in blocks:
+        if block.get("reasonable"):
+            console.print(Panel(
+                "[bold green]✓ Current approach is reasonable.[/] "
+                "No significant efficiency improvements needed.",
+                title="[bold]⚡ Efficiency Analysis[/]",
+                border_style="green",
+                padding=(0, 1),
+            ))
+            continue
+
+        line_num = block.get("line", 0)
+        current = block.get("current", "")
+        better = block.get("better", "")
+
+        # Code context
+        if line_num > 0 and filepath and Path(filepath).exists():
+            snippet, start, end = _extract_code_context(filepath, line_num)
+            lexer = _get_lexer(filepath)
+            syntax = Syntax(
+                snippet,
+                lexer,
+                line_numbers=True,
+                start_line=start,
+                highlight_lines={line_num},
+                theme="monokai",
+                padding=1,
+            )
+            console.print(Panel(
+                syntax,
+                title=f"[bold]📍 {Path(filepath).name} — Line {line_num}[/]",
+                border_style="yellow",
+                padding=(0, 0),
+            ))
+
+        # Analysis panel
+        parts = []
+        if current:
+            parts.append(f"[bold]CURRENT:[/] {current}")
+        if better:
+            parts.append(f"[bold]BETTER:[/]  {better}")
+
+        if parts:
+            console.print(Panel(
+                "\n".join(parts),
+                title="[bold]⚡ Efficiency[/]",
+                border_style="yellow",
+                padding=(0, 1),
+            ))
+
+
+def display_explanation(source: str, response: str):
+    """Display a prose explanation (for explain, explain-image, ask-voice, answer)."""
+    source_name = Path(source).name if Path(source).exists() else source
+    console.print(Panel(
+        Markdown(response.strip()),
+        title=f"[bold]📖 Explanation — {source_name}[/]",
+        border_style="magenta",
+        padding=(1, 2),
+    ))
 
 
 def display_streamed_explanation(source: str, stream: Generator[str, None, None]):
@@ -231,9 +383,9 @@ def display_streamed_explanation(source: str, stream: Generator[str, None, None]
 def display_practice(question: str):
     """Display a practice question in a distinct panel."""
     console.print(Panel(
-        Markdown(question.strip()),
+        question.strip(),
         title="[bold]🎯 Practice Question[/]",
-        subtitle="[dim]Type your answer below or press Ctrl+C to exit[/]",
+        subtitle="[dim]Answer with: scaffold answer \"your answer here\"[/]",
         border_style="yellow",
         padding=(1, 2),
     ))

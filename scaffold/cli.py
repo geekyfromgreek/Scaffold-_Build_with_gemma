@@ -67,10 +67,15 @@ def main(ctx):
 
 # scaffold setup
 @main.command()
-def setup():
+@click.option("--remove-hook", is_flag=True, help="Remove the auto-start hook from your shell profile.")
+def setup(remove_hook):
     """Install Ollama, pull the Gemma model, and setup the offline tutor."""
-    from scaffold.setup import run_setup
-    run_setup()
+    from scaffold.setup import run_setup, remove_profile_hook
+
+    if remove_hook:
+        remove_profile_hook()
+    else:
+        run_setup()
 
 
 # scaffold watch
@@ -83,6 +88,32 @@ def watch(daemon, watch_dir):
     from scaffold.watcher import start_watcher
 
     start_watcher(watch_dir, daemon=daemon)
+
+
+# scaffold run <file>
+@main.command()
+@click.argument("file_parts", nargs=-1, required=True, metavar="FILE")
+@click.option("--input", "stdin_input", default=None, help="Input to feed to the program via stdin.")
+def run(file_parts, stdin_input):
+    """Run your code and capture the output for the AI tutor."""
+    file = resolve_file(file_parts)
+
+    if stdin_input is not None:
+        # Captured mode: pipe stdin and show output in a panel
+        from scaffold.runner import run_file
+        from scaffold.display import display_run_result
+
+        stdin_input = stdin_input.replace("\\n", "\n")
+        result = run_file(file, stdin_input=stdin_input)
+        display_run_result(result)
+    else:
+        # Interactive mode: let the program use the terminal directly
+        from scaffold.runner import run_file_interactive
+        from scaffold.display import display_error
+
+        result = run_file_interactive(file)
+        if result.get("stderr"):
+            display_error(result["stderr"])
 
 
 # scaffold hint
@@ -123,7 +154,7 @@ def hint():
                 clear_last_practice()
         return
 
-    # 2. Otherwise, check recent errors to see if we should generate a new practice question or standard hint
+    # 2. Otherwise, check recent errors
     error = get_recent_error()
     if error is None:
         display_error("No recent errors found. Write some code and I'll watch for mistakes!")
@@ -133,44 +164,21 @@ def hint():
     if concept and should_generate_practice(concept):
         past_errors = get_concept_errors(concept)
         prompt = build_practice_prompt(concept, past_errors)
-        response = query_gemma(prompt, stream=True)
-        if response:
-            full_text = ""
+        response_stream = query_gemma(prompt, stream=True)
+        if response_stream:
             from rich.live import Live
             from rich.panel import Panel
-            from rich.markdown import Markdown
             
-            with Live(Panel("", title="[bold]🎯 Practice Question[/]", border_style="yellow", padding=(1, 2)), console=console, refresh_per_second=50) as live:
-                for chunk in response:
+            full_text = ""
+            with Live(Panel(full_text, title="[bold]🎯 Practice Question[/]", border_style="yellow", padding=(1, 2)), console=console, refresh_per_second=10) as live:
+                for chunk in response_stream:
                     full_text += chunk
-                    live.update(Panel(
-                        Markdown(full_text.strip()),
-                        title="[bold]🎯 Practice Question[/]",
-                        subtitle="[dim]Type your answer below or press Ctrl+C to exit[/]",
-                        border_style="yellow",
-                        padding=(1, 2),
-                    ))
+                    live.update(Panel(full_text.strip(), title="[bold]🎯 Practice Question[/]", border_style="yellow", padding=(1, 2)))
             
             save_last_practice(concept, full_text.strip())
-
-            # Prompt the user directly in the terminal to answer it immediately
-            try:
-                user_answer = console.input("\n[bold cyan]Your answer (or press Ctrl+C to exit):[/] ").strip()
-            except (KeyboardInterrupt, EOFError):
-                console.print()
-                return
-
-            if user_answer:
-                from scaffold.prompts import build_eval_prompt
-                from scaffold.display import display_streamed_explanation
-                eval_prompt = build_eval_prompt(full_text.strip(), user_answer)
-                result = query_gemma(eval_prompt, stream=True)
-                if result:
-                    display_streamed_explanation("answer evaluation", result)
-                    clear_last_practice()
         return
 
-    # Normal hint flow
+    # 3. Normal hint flow
     filepath = error.get("file", "")
     code = ""
     if filepath and Path(filepath).exists():
@@ -182,65 +190,62 @@ def hint():
         display_hint_response(filepath, response)
 
 
-# scaffold answer "<response>"
 @main.command()
-@click.argument("response_parts", nargs=-1, required=False, metavar="[RESPONSE]")
-def answer(response_parts):
-    """Answer a practice question, or ask any programming question."""
+@click.argument("file_parts", nargs=-1, required=True, metavar="FILE")
+@click.option("--expected", required=False, default=None, help="The output you expect the program to produce.")
+@click.option("--input", "stdin_input", default=None, help="Input to feed to the program via stdin.")
+def check(file_parts, expected, stdin_input):
+    """Check if your code produces the expected output. Detects logic errors."""
+    from scaffold.runner import run_file
     from scaffold.ollama_client import query_gemma, is_ollama_running
-    from scaffold.display import display_streamed_explanation, display_error
-    from scaffold.state import load_last_practice
-    from scaffold.display import console
+    from scaffold.prompts import build_check_prompt
+    from scaffold.display import display_hint_response, display_error, display_check_pass, display_run_result
+
+    file = resolve_file(file_parts)
 
     if not is_ollama_running():
         display_error("Ollama is not running. Start it with 'ollama serve' or run 'scaffold setup'.")
         return
 
-    response = " ".join(response_parts).strip()
+    if stdin_input is not None:
+        stdin_input = stdin_input.replace("\\n", "\n")
 
-    while True:
-        if not response:
-            try:
-                response = console.input("\n[bold cyan]Ask a question (or press Ctrl+C to exit):[/] ").strip()
-            except (KeyboardInterrupt, EOFError):
-                console.print()
-                break
-            
-            if not response:
-                continue
+    result = run_file(file, stdin_input=stdin_input)
+    actual = result.get("stdout", "").strip()
 
-        # If there's an active practice question, evaluate the answer against it
-        practice = load_last_practice()
-        if practice is not None:
-            from scaffold.prompts import build_eval_prompt
-            from scaffold.state import clear_last_practice
-            
-            prompt = build_eval_prompt(practice["question"], response)
-            result = query_gemma(prompt, stream=True)
-            if result:
-                display_streamed_explanation("answer evaluation", result)
-                # Clear the practice question so the user isn't stuck answering it forever
-                clear_last_practice()
-        else:
-            # No active practice question — treat as a general Q&A
-            from scaffold.prompts import build_answer_prompt
-            prompt = build_answer_prompt(response)
-            result = query_gemma(prompt, stream=True)
-            if result:
-                display_streamed_explanation("answer", result)
-        
-        # Clear response to prompt the user again in the next loop
-        response = ""
+    if expected is None:
+        # If no expected output is given, just behave like a silent runner and display what happened
+        display_run_result(result)
+        return
+
+    expected_stripped = expected.strip()
+
+    if actual == expected_stripped:
+        display_check_pass(file)
+        return
+
+    code = Path(file).read_text(encoding="utf-8", errors="replace")
+    prompt = build_check_prompt(code, expected_stripped, actual)
+    
+    from scaffold.display import console
+    console.print("[dim]Analyzing logic error...[/]", highlight=False)
+    
+    response = query_gemma(prompt)
+    if response:
+        display_hint_response(file, response)
+    else:
+        display_error("The AI model failed to generate a response. Please try again.")
 
 
-# scaffold review <file>
+# scaffold review <file> [--efficiency]
 @main.command()
 @click.argument("file_parts", nargs=-1, required=True, metavar="FILE")
-def review(file_parts):
+@click.option("--efficiency", is_flag=True, help="Analyze time/space complexity in Big-O terms.")
+def review(file_parts, efficiency):
     """On-demand code quality review."""
     from scaffold.ollama_client import query_gemma, is_ollama_running
-    from scaffold.prompts import build_review_prompt
-    from scaffold.display import display_hint_response, display_error
+    from scaffold.prompts import build_review_prompt, build_efficiency_prompt
+    from scaffold.display import display_hint_response, display_efficiency_response, display_error
 
     file = resolve_file(file_parts)
 
@@ -250,10 +255,16 @@ def review(file_parts):
 
     code = Path(file).read_text(encoding="utf-8", errors="replace")
 
-    prompt = build_review_prompt(code)
-    response = query_gemma(prompt)
-    if response:
-        display_hint_response(file, response)
+    if efficiency:
+        prompt = build_efficiency_prompt(code)
+        response = query_gemma(prompt)
+        if response:
+            display_efficiency_response(file, response)
+    else:
+        prompt = build_review_prompt(code)
+        response = query_gemma(prompt)
+        if response:
+            display_hint_response(file, response)
 
 
 # scaffold explain <file> [--input "<value>"]
@@ -284,14 +295,88 @@ def explain(file_parts, input_val):
         display_streamed_explanation(file, response)
 
 
+# scaffold explain-image [image] | --snip
+@main.command("explain-image")
+@click.argument("image_parts", nargs=-1, required=False, metavar="IMAGE")
+def explain_image(image_parts):
+    """Explain the logic/concept in an image. Uses clipboard by default."""
+    from scaffold.image_input import get_image_bytes_from_file, get_image_bytes_from_clipboard
+    from scaffold.ollama_client import query_gemma, is_ollama_running
+    from scaffold.prompts import build_image_prompt
+    from scaffold.display import display_streamed_explanation, display_error
+
+    if not is_ollama_running():
+        display_error("Ollama is not running. Start it with 'ollama serve' or run 'scaffold setup'.")
+        return
+
+    if image_parts:
+        # File path provided
+        image = resolve_file(image_parts)
+        image_bytes = get_image_bytes_from_file(image)
+        if image_bytes is None:
+            display_error(f"Could not read image: {image}")
+            return
+        source_label = image
+    else:
+        # Default: grab from clipboard
+        image_bytes = get_image_bytes_from_clipboard()
+        if image_bytes is None:
+            display_error(
+                "No image found on the clipboard.\n"
+                "  Copy an image or take a screenshot (Win+Shift+S), then run this command again.\n"
+                "  Or provide a file: scaffold explain-image diagram.png"
+            )
+            return
+        source_label = "clipboard screenshot"
+
+    prompt = build_image_prompt()
+    response = query_gemma(prompt, images=[image_bytes], stream=True)
+    if response:
+        display_streamed_explanation(source_label, response)
+
+
+# scaffold ask-voice [audio] | --mic
+@main.command("ask-voice")
+@click.argument("audio_parts", nargs=-1, required=False, metavar="AUDIO")
+@click.option("--mic", is_flag=True, help="Record from microphone instead of a file.")
+@click.option("--seconds", default=10, type=int, help="Recording duration in seconds (default: 10).")
+def ask_voice(audio_parts, mic, seconds):
+    """Ask a question by voice - from microphone or audio file."""
+    from scaffold.ollama_client import query_gemma, is_ollama_running
+    from scaffold.prompts import build_voice_prompt
+    from scaffold.display import display_streamed_explanation, display_error
+
+    if not is_ollama_running():
+        display_error("Ollama is not running. Start it with 'ollama serve' or run 'scaffold setup'.")
+        return
+
+    if audio_parts:
+        # File mode
+        from scaffold.voice_input import transcribe_audio
+        audio = resolve_file(audio_parts)
+        transcription = transcribe_audio(audio)
+    else:
+        # Microphone mode (default)
+        from scaffold.voice_input import record_and_transcribe
+        transcription = record_and_transcribe(duration=seconds)
+
+    if transcription is None:
+        display_error("Could not capture or transcribe audio.")
+        return
+
+    prompt = build_voice_prompt(transcription)
+    response = query_gemma(prompt, stream=True)
+    if response:
+        display_streamed_explanation("voice", response)
+
+
 # scaffold answer "<response>"
 @main.command()
 @click.argument("response_parts", nargs=-1, required=False, metavar="[RESPONSE]")
 def answer(response_parts):
-    """Answer a practice question, or ask any programming question."""
+    """Ask any programming question."""
     from scaffold.ollama_client import query_gemma, is_ollama_running
     from scaffold.display import display_streamed_explanation, display_error
-    from scaffold.state import load_last_practice
     from scaffold.display import console
 
     if not is_ollama_running():
@@ -311,25 +396,11 @@ def answer(response_parts):
             if not response:
                 continue
 
-        # If there's an active practice question, evaluate the answer against it
-        practice = load_last_practice()
-        if practice is not None:
-            from scaffold.prompts import build_eval_prompt
-            from scaffold.state import clear_last_practice
-            
-            prompt = build_eval_prompt(practice["question"], response)
-            result = query_gemma(prompt, stream=True)
-            if result:
-                display_streamed_explanation("answer evaluation", result)
-                # Clear the practice question so the user isn't stuck answering it forever
-                clear_last_practice()
-        else:
-            # No active practice question — treat as a general Q&A
-            from scaffold.prompts import build_answer_prompt
-            prompt = build_answer_prompt(response)
-            result = query_gemma(prompt, stream=True)
-            if result:
-                display_streamed_explanation("answer", result)
+        from scaffold.prompts import build_answer_prompt
+        prompt = build_answer_prompt(response)
+        result = query_gemma(prompt, stream=True)
+        if result:
+            display_streamed_explanation("answer", result)
         
         # Clear response to prompt the user again in the next loop
         response = ""

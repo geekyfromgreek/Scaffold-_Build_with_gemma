@@ -53,7 +53,7 @@ def build_nudge_prompt(code: str, error: dict) -> str:
 def build_hint_prompt(code: str, error: dict) -> str:
     """Build a prompt for the `scaffold hint` command.
 
-    Requests the structured LINE/ISSUE/WHY/HINT format for reliable parsing.
+    Requests the structured LINE/ISSUE/WHY format for reliable parsing.
     """
     numbered = _add_line_numbers(code) if code else "(no code available)"
     line = error.get("line", "unknown")
@@ -70,12 +70,36 @@ def build_hint_prompt(code: str, error: dict) -> str:
         f"LINE: <the line number where the issue is>\n"
         f"ISSUE: <one sentence describing what is wrong>\n"
         f"WHY: <one sentence explaining why this causes a problem>\n"
-        f"HINT: <one sentence showing how to fix the problem (e.g. 'add a colon' or 'fix parenthesis') without giving the complete rewritten code>\n"
         f"{_NO_CODE_RULE}"
     )
 
 
-# 3. Practice question — triggered on 3+ repeated mistakes
+# 3. Logical error detection — scaffold check
+
+def build_check_prompt(code: str, expected: str, actual: str) -> str:
+    """Build a prompt for `scaffold check --expected`.
+
+    Compares expected vs actual output and asks the model where the logic diverges.
+    """
+    numbered = _add_line_numbers(code)
+
+    return (
+        f"You are a patient coding tutor for beginners. "
+        f"A student's code runs without crashing, but produces the wrong output.\n\n"
+        f"Expected output:\n{expected}\n\n"
+        f"Actual output:\n{actual}\n\n"
+        f"Here is their code with line numbers:\n"
+        f"```\n{numbered}\n```\n\n"
+        f"Identify where the logic likely diverges from the student's intent. "
+        f"Respond in EXACTLY this format:\n"
+        f"LINE: <the line number where the logic issue is>\n"
+        f"ISSUE: <one sentence describing the logical mistake>\n"
+        f"WHY: <one sentence explaining why this produces the wrong output>\n"
+        f"{_NO_CODE_RULE}"
+    )
+
+
+# 4. Practice question — triggered on 3+ repeated mistakes
 
 def build_practice_prompt(concept: str, past_errors: list[dict]) -> str:
     """Build a prompt to generate a practice question for a repeated concept.
@@ -99,7 +123,7 @@ def build_practice_prompt(concept: str, past_errors: list[dict]) -> str:
     )
 
 
-# 4. General Q&A — scaffold answer
+# 5. General Q&A — scaffold answer
 
 def build_answer_prompt(question: str) -> str:
     """Build a prompt to answer any programming question from a student."""
@@ -119,8 +143,6 @@ def build_answer_prompt(question: str) -> str:
     )
 
 
-# 5. Practice question evaluation — scaffold answer (when practice is active)
-
 def build_eval_prompt(question: str, student_answer: str) -> str:
     """Build a prompt to evaluate a student's answer to a practice question."""
     return (
@@ -131,7 +153,6 @@ def build_eval_prompt(question: str, student_answer: str) -> str:
         f"- Say whether the reasoning is correct or not\n"
         f"- Explain WHY it's right or wrong conceptually\n"
         f"- If wrong, give a gentle nudge toward the right thinking (no code)\n"
-        f"- Highlight key words, programming concepts, or code elements using **bold** or `backticks` so they stand out in Markdown.\n"
         f"{_NO_CODE_RULE}"
     )
 
@@ -153,14 +174,38 @@ def build_review_prompt(code: str) -> str:
         f"For each suggestion, respond in this format:\n"
         f"LINE: <line number>\n"
         f"ISSUE: <one sentence describing the quality issue>\n"
-        f"WHY: <one sentence explaining why it matters>\n"
-        f"HINT: <one sentence showing how to fix the problem (e.g. 'rename variable to snake_case' or 'remove unused imports') without giving the complete rewritten code>\n\n"
+        f"HINT: <one sentence explaining how to improve it>\n\n"
         f"If the code is clean and well-written, say so briefly."
         f"{_NO_CODE_RULE}"
     )
 
 
-# 7. Code explanation — scaffold explain
+# 7. Efficiency analysis — scaffold review --efficiency
+
+def build_efficiency_prompt(code: str) -> str:
+    """Build a prompt for Big-O complexity analysis.
+
+    Uses LINE/CURRENT/BETTER format. Explicitly allows 'current approach is reasonable'.
+    """
+    numbered = _add_line_numbers(code)
+
+    return (
+        f"You are a coding tutor analyzing a beginner's code for efficiency. "
+        f"Analyze the time and space complexity.\n\n"
+        f"Here is their code with line numbers:\n"
+        f"```\n{numbered}\n```\n\n"
+        f"If there is a meaningful efficiency improvement, respond in this format:\n"
+        f"LINE: <line number of the relevant section>\n"
+        f"CURRENT: <current approach and its Big-O complexity>\n"
+        f"BETTER: <name of a better approach type and its Big-O, with one sentence on why>\n\n"
+        f"If the current approach is already reasonably efficient for a beginner's code, "
+        f"explicitly say 'current approach is reasonable' and briefly explain the current "
+        f"complexity. Do NOT force a suggestion when none is warranted."
+        f"{_NO_CODE_RULE}"
+    )
+
+
+# 8. Code explanation — scaffold explain
 
 def build_explain_prompt(code: str) -> str:
     """Build a prompt for overall code workflow explanation."""
@@ -168,7 +213,7 @@ def build_explain_prompt(code: str) -> str:
 
     return (
         f"You are a patient coding tutor explaining code to a beginner. "
-        f"Provide a concise explanation of what this code does (1-2 short paragraphs).\n\n"
+        f"Provide a concise explanation of what this code does (3-5 sentences).\n\n"
         f"Here is the code with line numbers:\n"
         f"```\n{numbered}\n```\n\n"
         f"Explain the overall flow and purpose. Use plain language. "
@@ -177,7 +222,7 @@ def build_explain_prompt(code: str) -> str:
     )
 
 
-# 8. Input trace — scaffold explain --input
+# 9. Input trace — scaffold explain --input
 
 def build_trace_prompt(code: str, input_value: str) -> str:
     """Build a prompt for step-by-step execution tracing with a given input."""
@@ -193,5 +238,41 @@ def build_trace_prompt(code: str, input_value: str) -> str:
         f"- What variables change and to what values\n"
         f"- What decisions (if/else, loops) are made and why\n\n"
         f"Keep it beginner-friendly and concise (under 10 steps if possible)."
+        f"{_NO_CODE_RULE}"
+    )
+
+
+# 10. Image explanation — scaffold explain-image
+
+def build_image_prompt() -> str:
+    """Build a prompt for explaining an image (code screenshot, diagram, etc).
+
+    The image bytes are passed separately via the Ollama images field.
+    """
+    return (
+        f"You are a patient coding tutor. A beginner student is showing you an image. "
+        f"It might be a screenshot of code, a flowchart, a diagram, or a concept illustration.\n\n"
+        f"Explain the logic or concept shown in this image in 3-5 simple sentences. "
+        f"Focus on WHAT it represents and HOW it works conceptually.\n\n"
+        f"If it's a code screenshot, describe what the code is trying to do, "
+        f"but do NOT rewrite, correct, or reproduce the code."
+        f"{_NO_CODE_RULE}"
+    )
+
+
+# 11. Voice Q&A — scaffold ask-voice
+
+def build_voice_prompt(transcription: str) -> str:
+    """Build a prompt for answering a voice-transcribed question.
+
+    The audio has already been transcribed to text by Whisper.
+    """
+    return (
+        f"You are a patient coding tutor for beginners. A student asked you a question "
+        f"verbally (transcribed below). Give a helpful hint or explanation — "
+        f"never a full answer, solution, or working code.\n\n"
+        f"Student's question: \"{transcription}\"\n\n"
+        f"Respond in 2-4 sentences. Focus on explaining the concept, "
+        f"pointing them in the right direction, or asking a clarifying question."
         f"{_NO_CODE_RULE}"
     )
