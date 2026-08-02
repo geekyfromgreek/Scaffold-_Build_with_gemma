@@ -53,7 +53,7 @@ def build_nudge_prompt(code: str, error: dict) -> str:
 def build_hint_prompt(code: str, error: dict) -> str:
     """Build a prompt for the `scaffold hint` command.
 
-    Requests the structured LINE/ISSUE/WHY format for reliable parsing.
+    Requests the structured LINE/ISSUE/WHY/HINT format for reliable parsing.
     """
     numbered = _add_line_numbers(code) if code else "(no code available)"
     line = error.get("line", "unknown")
@@ -70,6 +70,7 @@ def build_hint_prompt(code: str, error: dict) -> str:
         f"LINE: <the line number where the issue is>\n"
         f"ISSUE: <one sentence describing what is wrong>\n"
         f"WHY: <one sentence explaining why this causes a problem>\n"
+        f"HINT: <one sentence showing how to fix the problem (e.g. 'add a colon' or 'fix parenthesis') without giving the complete rewritten code>\n"
         f"{_NO_CODE_RULE}"
     )
 
@@ -130,6 +131,7 @@ def build_eval_prompt(question: str, student_answer: str) -> str:
         f"- Say whether the reasoning is correct or not\n"
         f"- Explain WHY it's right or wrong conceptually\n"
         f"- If wrong, give a gentle nudge toward the right thinking (no code)\n"
+        f"- Highlight key words, programming concepts, or code elements using **bold** or `backticks` so they stand out in Markdown.\n"
         f"{_NO_CODE_RULE}"
     )
 
@@ -151,7 +153,8 @@ def build_review_prompt(code: str) -> str:
         f"For each suggestion, respond in this format:\n"
         f"LINE: <line number>\n"
         f"ISSUE: <one sentence describing the quality issue>\n"
-        f"WHY: <one sentence explaining why it matters>\n\n"
+        f"WHY: <one sentence explaining why it matters>\n"
+        f"HINT: <one sentence showing how to fix the problem (e.g. 'rename variable to snake_case' or 'remove unused imports') without giving the complete rewritten code>\n\n"
         f"If the code is clean and well-written, say so briefly."
         f"{_NO_CODE_RULE}"
     )

@@ -188,9 +188,13 @@ def run_setup():
     console.print(Panel(
         "[bold green]✓ Scaffold is ready![/]\n\n"
         "Quick start:\n"
-        "  • Type [bold]scaffold answer[/] to ask programming questions\n"
-        "  • Type [bold]scaffold hint[/] to get structured hints for coding errors\n"
-        "  • Type [bold]scaffold[/] or [bold]scaffold --help[/] to see all commands",
+        "  • [bold]scaffold watch[/]    - Watch your code recursively for errors in real-time\n"
+        "  • [bold]scaffold hint[/]     - Get interactive practice & hints for errors\n"
+        "  • [bold]scaffold answer[/]   - Ask questions or evaluate active practice\n"
+        "  • [bold]scaffold explain[/]  - Explain how code works step-by-step\n"
+        "  • [bold]scaffold review[/]   - Get a quality and efficiency review on code\n"
+        "  • [bold]scaffold check[/]    - Check logic errors against expected output\n\n"
+        "Type [bold]scaffold[/] or [bold]scaffold --help[/] to see all commands",
         border_style="green",
         padding=(1, 2),
     ))

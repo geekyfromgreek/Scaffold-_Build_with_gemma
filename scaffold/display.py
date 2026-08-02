@@ -51,14 +51,15 @@ console = Console(theme=SCAFFOLD_THEME, force_terminal=True)
 # Response parsing
 
 def parse_model_response(raw: str) -> list[dict]:
-    """Parse LINE/ISSUE/WHY blocks from model output.
+    """Parse LINE/ISSUE/WHY/HINT blocks from model output.
 
     Handles responses like:
         LINE: 7
         ISSUE: Missing colon after if statement
         WHY: Python requires a colon to start a block
+        HINT: Add a colon at the end of the line
 
-    Returns a list of dicts, each with keys: line, issue, why.
+    Returns a list of dicts, each with keys: line, issue, why, hint.
     Multiple blocks are separated by blank lines or repeated LINE: headers.
     """
     blocks = []
@@ -70,16 +71,19 @@ def parse_model_response(raw: str) -> list[dict]:
         m_line = re.match(r"^LINE:\s*(\d+)", text_line, re.IGNORECASE)
         m_issue = re.match(r"^ISSUE:\s*(.*)", text_line, re.IGNORECASE)
         m_why = re.match(r"^WHY:\s*(.*)", text_line, re.IGNORECASE)
+        m_hint = re.match(r"^HINT:\s*(.*)", text_line, re.IGNORECASE)
 
         if m_line:
             # Start a new block (save previous if it exists)
             if current:
                 blocks.append(current)
-            current = {"line": int(m_line.group(1)), "issue": "", "why": ""}
+            current = {"line": int(m_line.group(1)), "issue": "", "why": "", "hint": ""}
         elif m_issue and current:
             current["issue"] = m_issue.group(1).strip()
         elif m_why and current:
             current["why"] = m_why.group(1).strip()
+        elif m_hint and current:
+            current["hint"] = m_hint.group(1).strip()
 
     if current:
         blocks.append(current)
@@ -174,6 +178,7 @@ def display_hint_response(filepath: str, raw_response: str):
         line_num = block.get("line", 0)
         issue = block.get("issue", "")
         why = block.get("why", "")
+        hint = block.get("hint", "")
 
         # Code context panel
         if line_num > 0 and filepath and Path(filepath).exists():
@@ -201,6 +206,8 @@ def display_hint_response(filepath: str, raw_response: str):
             explanation_parts.append(f"**ISSUE:** {issue}")
         if why:
             explanation_parts.append(f"**WHY:** {why}")
+        if hint:
+            explanation_parts.append(f"**HINT:** {hint}")
 
         if explanation_parts:
             console.print(Panel(
