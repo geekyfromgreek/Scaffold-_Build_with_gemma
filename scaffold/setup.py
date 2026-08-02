@@ -190,7 +190,7 @@ def run_setup():
         "Quick start:\n"
         "  • Type [bold]scaffold answer[/] to ask programming questions\n"
         "  • Type [bold]scaffold hint[/] to get structured hints for coding errors\n"
-        "  • Type [bold]scaffold --help[/] to see all commands",
+        "  • Type [bold]scaffold[/] or [bold]scaffold --help[/] to see all commands",
         border_style="green",
         padding=(1, 2),
     ))

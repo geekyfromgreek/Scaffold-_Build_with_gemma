@@ -132,3 +132,63 @@ def build_eval_prompt(question: str, student_answer: str) -> str:
         f"- If wrong, give a gentle nudge toward the right thinking (no code)\n"
         f"{_NO_CODE_RULE}"
     )
+
+
+# 6. Code review — scaffold review (1-2 suggestions max)
+
+def build_review_prompt(code: str) -> str:
+    """Build a prompt for on-demand code quality review.
+
+    Provides concise suggestions. Never outputs rewritten code.
+    """
+    numbered = _add_line_numbers(code)
+
+    return (
+        f"You are a coding tutor reviewing a beginner's code for quality. "
+        f"Provide 1 to 3 concise suggestions for improving the code.\n\n"
+        f"Here is their code with line numbers:\n"
+        f"```\n{numbered}\n```\n\n"
+        f"For each suggestion, respond in this format:\n"
+        f"LINE: <line number>\n"
+        f"ISSUE: <one sentence describing the quality issue>\n"
+        f"WHY: <one sentence explaining why it matters>\n\n"
+        f"If the code is clean and well-written, say so briefly."
+        f"{_NO_CODE_RULE}"
+    )
+
+
+# 7. Code explanation — scaffold explain
+
+def build_explain_prompt(code: str) -> str:
+    """Build a prompt for overall code workflow explanation."""
+    numbered = _add_line_numbers(code)
+
+    return (
+        f"You are a patient coding tutor explaining code to a beginner. "
+        f"Provide a concise explanation of what this code does (1-2 short paragraphs).\n\n"
+        f"Here is the code with line numbers:\n"
+        f"```\n{numbered}\n```\n\n"
+        f"Explain the overall flow and purpose. Use plain language. "
+        f"Mention what the key variables do and how the logic flows from start to finish."
+        f"{_NO_CODE_RULE}"
+    )
+
+
+# 8. Input trace — scaffold explain --input
+
+def build_trace_prompt(code: str, input_value: str) -> str:
+    """Build a prompt for step-by-step execution tracing with a given input."""
+    numbered = _add_line_numbers(code)
+
+    return (
+        f"You are a patient coding tutor. Trace through this code step by step "
+        f"as if the input is: {input_value}\n\n"
+        f"Here is the code with line numbers:\n"
+        f"```\n{numbered}\n```\n\n"
+        f"Walk through the execution line by line. For each important step, show:\n"
+        f"- Which line is executing\n"
+        f"- What variables change and to what values\n"
+        f"- What decisions (if/else, loops) are made and why\n\n"
+        f"Keep it beginner-friendly and concise (under 10 steps if possible)."
+        f"{_NO_CODE_RULE}"
+    )

@@ -57,6 +57,20 @@ Queries the AI tutor for a Socratic hint regarding your most recent error.
 - Explains the issue using a structured **LINE / ISSUE / WHY** format with code syntax-highlighting.
 - **Adaptive Practice**: If you make the same category of mistake **3 or more times**, Scaffold will automatically shift from giving hints to generating a conceptual **practice question** to reinforce your understanding. You can submit your answer using `scaffold answer "<your explanation>"`.
 
+### 4. `scaffold review <file>`
+Performs an on-demand code quality review of the specified file, identifying 1 to 3 suggestions for improving code quality, formatted in the Socratic **LINE / ISSUE / WHY** breakdown.
+
+### 5. `scaffold explain <file> [--input "<value>"]`
+Explains how the specified code works conceptually.
+- **Prose explanation**: Run without options to get a high-level summary of the code flow and variables:
+  ```bash
+  scaffold explain hello.py
+  ```
+- **Step-by-step trace**: Provide the `--input` flag to trace execution step-by-step for a specific input value:
+  ```bash
+  scaffold explain calculator.py --input "5"
+  ```
+
 ---
 
 ## 📂 Project Structure

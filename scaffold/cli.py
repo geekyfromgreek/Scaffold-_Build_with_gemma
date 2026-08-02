@@ -171,5 +171,56 @@ def answer(response_parts):
         response = ""
 
 
+# scaffold review <file>
+@main.command()
+@click.argument("file_parts", nargs=-1, required=True, metavar="FILE")
+def review(file_parts):
+    """On-demand code quality review."""
+    from scaffold.ollama_client import query_gemma, is_ollama_running
+    from scaffold.prompts import build_review_prompt
+    from scaffold.display import display_hint_response, display_error
+
+    file = resolve_file(file_parts)
+
+    if not is_ollama_running():
+        display_error("Ollama is not running. Start it with 'ollama serve' or run 'scaffold setup'.")
+        return
+
+    code = Path(file).read_text(encoding="utf-8", errors="replace")
+
+    prompt = build_review_prompt(code)
+    response = query_gemma(prompt)
+    if response:
+        display_hint_response(file, response)
+
+
+# scaffold explain <file> [--input "<value>"]
+@main.command()
+@click.argument("file_parts", nargs=-1, required=True, metavar="FILE")
+@click.option("--input", "input_val", default=None, help="Trace execution step-by-step for this input value.")
+def explain(file_parts, input_val):
+    """Explain how your code works. Never rewrites code."""
+    from scaffold.ollama_client import query_gemma, is_ollama_running
+    from scaffold.prompts import build_explain_prompt, build_trace_prompt
+    from scaffold.display import display_streamed_explanation, display_error
+
+    file = resolve_file(file_parts)
+
+    if not is_ollama_running():
+        display_error("Ollama is not running. Start it with 'ollama serve' or run 'scaffold setup'.")
+        return
+
+    code = Path(file).read_text(encoding="utf-8", errors="replace")
+
+    if input_val:
+        prompt = build_trace_prompt(code, input_val)
+    else:
+        prompt = build_explain_prompt(code)
+
+    response = query_gemma(prompt, stream=True)
+    if response:
+        display_streamed_explanation(file, response)
+
+
 if __name__ == "__main__":
     main()
