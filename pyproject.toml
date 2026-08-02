@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scaffold"
+version = "0.1.0"
+description = "Scaffold: An offline, privacy-first AI tutor for students. Powered by local Gemma models for the Gemma for Good hackathon."
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.1",
+    "watchdog>=4.0",
+    "rich>=13.0",
+    "ollama>=0.4",
+    "Pillow>=10.0",
+    "sounddevice>=0.4",
+    "scipy>=1.11",
+    "openai-whisper>=20231117",
+]
+
+[project.scripts]
+scaffold = "scaffold.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
